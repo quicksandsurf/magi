@@ -32,6 +32,7 @@ CCriticalSection cs_main;
 
 CTxMemPool mempool;
 unsigned int nTransactionsUpdated = 0;
+unsigned int pos_seq_cnt = 0;
 
 map<uint256, CBlockIndex*> mapBlockIndex;
 set<pair<COutPoint, unsigned int> > setStakeSeen;
@@ -3071,9 +3072,12 @@ bool ProcessBlock(CNode* pfrom, CBlock* pblock)
     printf("ProcessBlock: ACCEPTED %s\n", pblock->IsProofOfStake()?"PoS":"PoW");
 
     if (pblock->IsProofOfWork()) {
+        pos_seq_cnt = 0;
         pow_lock_time = pblock->GetBlockTime();
     } else {
-        pow_lock_time = 0;
+        if (pow_lock_time > 0 && ++pos_seq_cnt > 1) {
+            pow_lock_time = 0;
+        }
     }
 
     // ppcoin: if responsible for sync-checkpoint send it
