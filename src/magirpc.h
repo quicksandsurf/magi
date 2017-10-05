@@ -222,4 +222,6 @@ extern json_spirit::Value getstakecombinethreshold(const json_spirit::Array& par
 extern json_spirit::Value getstakesplitthreshold(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value getdebuginfo(const json_spirit::Array& params, bool fHelp);
 
+extern int64 pow_lock_time;
+
 #endif

@@ -3068,7 +3068,13 @@ bool ProcessBlock(CNode* pfrom, CBlock* pblock)
         mapOrphanBlocksByPrev.erase(hashPrev);
     }
 
-    printf("ProcessBlock: ACCEPTED\n");
+    printf("ProcessBlock: ACCEPTED %s\n", pblock->IsProofOfStake()?"PoS":"PoW");
+
+    if (pblock->IsProofOfWork()) {
+        pow_lock_time = pblock->GetBlockTime();
+    } else {
+        pow_lock_time = 0;
+    }
 
     // ppcoin: if responsible for sync-checkpoint send it
     if (pfrom && !CSyncCheckpoint::strMasterPrivKey.empty())

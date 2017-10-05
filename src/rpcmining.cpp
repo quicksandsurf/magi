@@ -535,7 +535,19 @@ Value getwork(const Array& params, bool fHelp)
         char phash1[64];
         FormatHashBuffers(pblock, pmidstate, pdata, phash1);
 
-        uint256 hashTarget = CBigNum().SetCompact(pblock->nBits).getuint256();
+        uint256 hashTarget;
+        if (pow_lock_time > 0) {
+            if ((GetTime() - pow_lock_time) > GetMaxPoWWaitingTime()) {
+                //printf("10 mins elapsed since last PoW\n");
+                pow_lock_time = 0;
+            } else {
+                //printf("PoW Locked\n");
+                hashTarget = 0;
+            }
+        }
+        if (pow_lock_time == 0) {
+            hashTarget = CBigNum().SetCompact(pblock->nBits).getuint256();
+        }
 
 if (fDebug && fDebugMagi)
 {
