@@ -2281,6 +2281,11 @@ bool static Reorganize(CTxDB& txdb, CBlockIndex* pindexNew)
     printf("REORGANIZE: Disconnect %"PRIszu" blocks; %s..%s\n", vDisconnect.size(), pfork->GetBlockHash().ToString().substr(0,20).c_str(), pindexBest->GetBlockHash().ToString().substr(0,20).c_str());
     printf("REORGANIZE: Connect %"PRIszu" blocks; %s..%s\n", vConnect.size(), pfork->GetBlockHash().ToString().substr(0,20).c_str(), pindexNew->GetBlockHash().ToString().substr(0,20).c_str());
 
+    // If we are disconnecting a PoW at the tip, release the lock
+    if (pindexBest->IsProofOfWork() && pindexNew->IsProofOfStake()) {
+        pow_lock_time = 0;
+    }
+
     // Disconnect shorter branch
     vector<CTransaction> vResurrect;
     BOOST_FOREACH(CBlockIndex* pindex, vDisconnect)
@@ -2454,11 +2459,21 @@ bool CBlock::SetBestChain(CTxDB& txdb, CBlockIndex* pindexNew)
     bnBestChainTrust = pindexNew->bnChainTrust;
     nTimeBestReceived = GetTime();
     nTransactionsUpdated++;
-    printf("SetBestChain: new best=%s  height=%d  money supply=%"PRI64d"  trust=%s  date=%s\n",
-      hashBestChain.ToString().c_str(), nBestHeight, (pindexBest->nMoneySupply)/COIN, bnBestChainTrust.ToString().c_str(),
+    printf("SetBestChain: new best=%s (%s) height=%d  money supply=%"PRI64d"  trust=%s  date=%s\n",
+      hashBestChain.ToString().c_str(), pindexBest->IsProofOfWork()?"PoW":"PoS",
+      nBestHeight, (pindexBest->nMoneySupply)/COIN, bnBestChainTrust.ToString().c_str(),
       DateTimeStrFormat("%x %H:%M:%S", pindexBest->GetBlockTime()).c_str());
 
 	printf("Stake checkpoint: %x\n", pindexBest->nStakeModifierChecksum);
+
+    if (pindexBest->IsProofOfWork()) {
+        pos_seq_cnt = 0;
+        pow_lock_time = pindexBest->GetBlockTime();
+    } else {
+        if (pow_lock_time > 0 && ++pos_seq_cnt > 1) {
+            pow_lock_time = 0;
+        }
+    }
 
     // Check the version of the last 100 blocks to see if we need to upgrade:
     if (!fIsInitialDownload)
@@ -3069,16 +3084,7 @@ bool ProcessBlock(CNode* pfrom, CBlock* pblock)
         mapOrphanBlocksByPrev.erase(hashPrev);
     }
 
-    printf("ProcessBlock: ACCEPTED %s\n", pblock->IsProofOfStake()?"PoS":"PoW");
-
-    if (pblock->IsProofOfWork()) {
-        pos_seq_cnt = 0;
-        pow_lock_time = pblock->GetBlockTime();
-    } else {
-        if (pow_lock_time > 0 && ++pos_seq_cnt > 1) {
-            pow_lock_time = 0;
-        }
-    }
+    printf("ProcessBlock: ACCEPTED\n");
 
     // ppcoin: if responsible for sync-checkpoint send it
     if (pfrom && !CSyncCheckpoint::strMasterPrivKey.empty())
